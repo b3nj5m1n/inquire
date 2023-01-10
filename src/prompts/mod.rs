@@ -15,7 +15,7 @@ mod text;
 pub use confirm::Confirm;
 pub use custom_type::CustomType;
 #[cfg(feature = "date")]
-pub use dateselect::DateSelect;
+pub use dateselect::{DateSelect, DateSelectPrompt};
 #[cfg(feature = "editor")]
 pub use editor::Editor;
 pub use multiselect::MultiSelect;

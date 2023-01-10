@@ -74,8 +74,6 @@ impl Input {
 
     pub fn handle_key(&mut self, key: Key) -> bool {
         match key {
-            Key::Char('s', m) if m.contains(KeyModifiers::CONTROL) => panic!("Skipping"),
-
             Key::Backspace => self.backspace(),
             Key::Char('h', m) if m.contains(KeyModifiers::CONTROL) => false,
 

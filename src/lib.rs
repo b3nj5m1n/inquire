@@ -82,7 +82,6 @@ pub mod ui;
 mod utils;
 pub mod validator;
 
-#[cfg(feature = "date")]
 pub mod key_handler;
 
 pub use crate::autocompletion::Autocomplete;

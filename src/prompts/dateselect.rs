@@ -224,6 +224,18 @@ impl<'a> DateSelect<'a> {
         Rc::new(key_handler)
     }
 
+    /// Register a new keybinding
+    pub fn register_keybind(
+        mut self,
+        guard: Guard<DateSelectPrompt<'a>>,
+        callback: Box<dyn Fn(&mut DateSelectPrompt) -> ()>,
+    ) -> Self {
+        Rc::get_mut(&mut self.key_handler)
+            .unwrap()
+            .add_event_multiple_guards(vec![guard], callback);
+        self
+    }
+
     /// Creates a [DateSelect] with the provided message, along with default configuration values.
     pub fn new(message: &'a str) -> Self {
         Self {
@@ -376,7 +388,7 @@ impl<'a> DateSelect<'a> {
     }
 }
 
-struct DateSelectPrompt<'a> {
+pub struct DateSelectPrompt<'a> {
     message: &'a str,
     current_date: NaiveDate,
     week_start: chrono::Weekday,

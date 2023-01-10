@@ -1,5 +1,9 @@
 use chrono::{NaiveDate, Weekday};
-use inquire::{formatter::DEFAULT_DATE_FORMATTER, validator::Validation, CustomType, DateSelect};
+use inquire::key_handler::Guard;
+use inquire::{
+    formatter::DEFAULT_DATE_FORMATTER, validator::Validation, CustomType, DateSelect,
+    DateSelectPrompt,
+};
 
 fn main() {
     date_select_default();
@@ -12,8 +16,16 @@ fn main() {
 fn date_select_default() {
     println!("-------> Simple DateSelect");
     println!();
-
-    DateSelect::new("Check-in date:").prompt().unwrap();
+    DateSelect::new("Check-in date:")
+        .register_keybind(
+            Guard::new(
+                inquire::ui::Key::Char('s', inquire::ui::KeyModifiers::CONTROL),
+                None,
+            ),
+            Box::new(|s: &mut DateSelectPrompt| panic!("Skipped")),
+        )
+        .prompt()
+        .unwrap();
     println!("We will be expecting you!");
     println!();
 }
