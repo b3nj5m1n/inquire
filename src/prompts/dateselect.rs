@@ -1,9 +1,11 @@
 use chrono::{Datelike, Duration, NaiveDate};
+use std::rc::Rc;
 use std::{
     cmp::{max, min},
     ops::Add,
 };
 
+use crate::key_handler::{Guard, KeyHandler};
 use crate::{
     config::get_configuration,
     date_utils::{get_current_date, get_month},
@@ -100,6 +102,8 @@ pub struct DateSelect<'a> {
     /// config is treated as the only source of truth. If you want to customize colors
     /// and still suport NO_COLOR, you will have to do this on your end.
     pub render_config: RenderConfig,
+
+    key_handler: Rc<KeyHandler<DateSelectPrompt<'a>>>,
 }
 
 impl<'a> DateSelect<'a> {
@@ -125,6 +129,101 @@ impl<'a> DateSelect<'a> {
     /// Default max date.
     pub const DEFAULT_MAX_DATE: Option<NaiveDate> = None;
 
+    /// The default keybindings
+    fn default_key_handler() -> Rc<KeyHandler<DateSelectPrompt<'a>>> {
+        let mut key_handler = KeyHandler::<DateSelectPrompt>::new();
+        // Move up
+        key_handler.add_event_multiple_guards(
+            vec![
+                Guard::new(Key::Up(KeyModifiers::NONE), None),
+                Guard::new(
+                    Key::Char('k', KeyModifiers::NONE),
+                    Some(Box::new(|s: &DateSelectPrompt| s.vim_mode)),
+                ),
+            ],
+            Box::new(|s| s.shift_date(Duration::weeks(-1))),
+        );
+        // Move down
+        key_handler.add_event_multiple_guards(
+            vec![
+                Guard::new(Key::Down(KeyModifiers::NONE), None),
+                Guard::new(Key::Tab, None),
+                Guard::new(
+                    Key::Char('j', KeyModifiers::NONE),
+                    Some(Box::new(|s: &DateSelectPrompt| s.vim_mode)),
+                ),
+            ],
+            Box::new(|s| s.shift_date(Duration::weeks(1))),
+        );
+        // Move left
+        key_handler.add_event_multiple_guards(
+            vec![
+                Guard::new(Key::Left(KeyModifiers::NONE), None),
+                Guard::new(
+                    Key::Char('h', KeyModifiers::NONE),
+                    Some(Box::new(|s: &DateSelectPrompt| s.vim_mode)),
+                ),
+            ],
+            Box::new(|s| s.shift_date(Duration::days(-1))),
+        );
+        // Move right
+        key_handler.add_event_multiple_guards(
+            vec![
+                Guard::new(Key::Right(KeyModifiers::NONE), None),
+                Guard::new(
+                    Key::Char('l', KeyModifiers::NONE),
+                    Some(Box::new(|s: &DateSelectPrompt| s.vim_mode)),
+                ),
+            ],
+            Box::new(|s| s.shift_date(Duration::days(1))),
+        );
+        // Go back a year
+        key_handler.add_event_multiple_guards(
+            vec![
+                Guard::new(Key::Up(KeyModifiers::CONTROL), None),
+                Guard::new(
+                    Key::Char('K', KeyModifiers::SHIFT),
+                    Some(Box::new(|s: &DateSelectPrompt| s.vim_mode)),
+                ),
+            ],
+            Box::new(|s| s.shift_months(-12)),
+        );
+        // Go forward a year
+        key_handler.add_event_multiple_guards(
+            vec![
+                Guard::new(Key::Down(KeyModifiers::CONTROL), None),
+                Guard::new(
+                    Key::Char('J', KeyModifiers::SHIFT),
+                    Some(Box::new(|s: &DateSelectPrompt| s.vim_mode)),
+                ),
+            ],
+            Box::new(|s| s.shift_months(12)),
+        );
+        // Go back a month
+        key_handler.add_event_multiple_guards(
+            vec![
+                Guard::new(Key::Left(KeyModifiers::CONTROL), None),
+                Guard::new(
+                    Key::Char('H', KeyModifiers::SHIFT),
+                    Some(Box::new(|s: &DateSelectPrompt| s.vim_mode)),
+                ),
+            ],
+            Box::new(|s| s.shift_months(-1)),
+        );
+        // Go forward a month
+        key_handler.add_event_multiple_guards(
+            vec![
+                Guard::new(Key::Right(KeyModifiers::CONTROL), None),
+                Guard::new(
+                    Key::Char('L', KeyModifiers::SHIFT),
+                    Some(Box::new(|s: &DateSelectPrompt| s.vim_mode)),
+                ),
+            ],
+            Box::new(|s| s.shift_months(1)),
+        );
+        Rc::new(key_handler)
+    }
+
     /// Creates a [DateSelect] with the provided message, along with default configuration values.
     pub fn new(message: &'a str) -> Self {
         Self {
@@ -138,6 +237,7 @@ impl<'a> DateSelect<'a> {
             validators: Self::DEFAULT_VALIDATORS,
             week_start: Self::DEFAULT_WEEK_START,
             render_config: get_configuration(),
+            key_handler: Self::default_key_handler(),
         }
     }
 
@@ -287,6 +387,7 @@ struct DateSelectPrompt<'a> {
     formatter: DateFormatter<'a>,
     validators: Vec<Box<dyn DateValidator>>,
     error: Option<ErrorMessage>,
+    key_handler: Rc<KeyHandler<Self>>,
 }
 
 impl<'a> DateSelectPrompt<'a> {
@@ -317,6 +418,7 @@ impl<'a> DateSelectPrompt<'a> {
             formatter: so.formatter,
             validators: so.validators,
             error: None,
+            key_handler: so.key_handler,
         })
     }
 
@@ -357,33 +459,7 @@ impl<'a> DateSelectPrompt<'a> {
     }
 
     fn on_change(&mut self, key: Key) {
-        match key {
-            Key::Up(KeyModifiers::NONE) => self.shift_date(Duration::weeks(-1)),
-            Key::Char('k', KeyModifiers::NONE) if self.vim_mode => {
-                self.shift_date(Duration::weeks(-1))
-            }
-
-            Key::Down(KeyModifiers::NONE) | Key::Tab => self.shift_date(Duration::weeks(1)),
-            Key::Char('j', KeyModifiers::NONE) if self.vim_mode => {
-                self.shift_date(Duration::weeks(1))
-            }
-
-            Key::Left(KeyModifiers::NONE) => self.shift_date(Duration::days(-1)),
-            Key::Char('h', KeyModifiers::NONE) if self.vim_mode => {
-                self.shift_date(Duration::days(-1))
-            }
-
-            Key::Right(KeyModifiers::NONE) => self.shift_date(Duration::days(1)),
-            Key::Char('l', KeyModifiers::NONE) if self.vim_mode => {
-                self.shift_date(Duration::days(1))
-            }
-
-            Key::Up(KeyModifiers::CONTROL) => self.shift_months(-12),
-            Key::Down(KeyModifiers::CONTROL) => self.shift_months(12),
-            Key::Left(KeyModifiers::CONTROL) => self.shift_months(-1),
-            Key::Right(KeyModifiers::CONTROL) => self.shift_months(1),
-            _ => {}
-        }
+        KeyHandler::on_change(key, self, &Rc::clone(&self.key_handler));
     }
 
     fn validate_current_answer(&self) -> InquireResult<Validation> {
